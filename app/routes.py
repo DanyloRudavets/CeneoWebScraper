@@ -3,16 +3,38 @@ from app import app
 
 @app.route('/')
 
-def hello():
-    return render_template('index.html')
 @app.route('/extract')
 
+def display_form():
+    form = ProductForm()
+    return render_template("extract.html", form=form)
+@app.route("/extract", methods=['POST'])
 def extract():
-    return render_template('extract.html')
+    form = ProductForm(request.form)
+    if form.validate():
+        product_id = form.product_id.data
+        product = Product(product_id)
+        if_not_exists = product.if_not_exists()
+        if if_not_exists:
+            form.product_id.errors.append(if_not_exists)
+            return render_template("extract.html", form=form)
+        product.extract_reviews().extract_name().calculate_stats()
+        product.export_reviews()
+        product.export_info()
+        return redirect(url_for('product', product_id=product_id))
+    else:
+        return render_template("extract.html", form=form)
 @app.route('/products')
 
 def products():
-    return render_template('products.html')
+    products_files = os.listdir("./app/data/products")
+    products= []
+    for filename in products_files:
+        with open(f"./app/data/products/{filename}", "r", encoding="UTF-8") as jf:
+            product = Product(filename.split(".")[0])
+            product.info_from_dict(json.load(jf))
+            products.append(product)
+    return render_template("products.html", products=products)
 @app.route('/product/<product_id>')
 
 def product(product_id):
